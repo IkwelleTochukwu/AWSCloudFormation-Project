@@ -12,7 +12,12 @@ Parameters:
     Default: t2.micro
     ConstraintDescription: must be a valid EC2 instance type
   SSHLOCATION:
-    Description: The IP address range that can be used to SSH to the EC2 instances
+    Description: The IP address range that can be used to SSH to the EC2 instances in public subnet
+    Type: String
+    Default: 0.0.0.0/0
+    ConstraintDescription: must be valid IP CIDR range of the form x.x.x.x/x
+  SSHLOCATION-Priv:
+    Description: The IP address range that can be used to SSH to the EC2 instances in the private subnet
     Type: String
     Default: 0.0.0.0/0
     ConstraintDescription: must be valid IP CIDR range of the form x.x.x.x/x
@@ -109,7 +114,7 @@ Resources:
       EnableDnsHostnames: 'true'
       Tags:
         - Key: Project
-          Value: Application
+          Value: Web-Application
 
   #### Subnets resource creation ####
   myPubSubnet:
@@ -120,7 +125,7 @@ Resources:
       MapPublicIpOnLaunch: 'true'
       Tags:
         - Key: Project
-          Value: Application-PublicSubnet
+          Value: Project-PublicSubnet
 
   myPrivSubnet:
     Type: 'AWS::EC2::Subnet'
@@ -130,7 +135,7 @@ Resources:
       MapPublicIpOnLaunch: 'false'
       Tags:
         - key: Project
-          Value: Application-PrivateSubnet
+          Value: Project-PrivateSubnet
 
   #### Creation of resources to configure the public subnet ####
   InternetGW:
@@ -138,9 +143,9 @@ Resources:
     Properties: 
       Tags:
         - Key: Project
-          Value: Application-IGW
+          Value: Project-IGW
 
-  InternetGW_Attachment:
+  InternetGWAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       InternetGatewayId: !GetAtt InternetGW.InternetGatewayId
@@ -151,7 +156,7 @@ Resources:
     Properties:
       Tags:
         - Key: Project
-          Value: Application-PubRtTb
+          Value: Project-PubRtTb
 
   RoutePubRtb:
     Type: 'AWS::EC2::Route'
@@ -172,4 +177,60 @@ Resources:
     Properties:
       Tags:
         - Key: Project
-          Value: Application-PrivRtTb
+          Value: Project-PrivRtTb
+
+  #### Creation of security groups for the servers ####
+  PublicServerSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties: 
+      GroupDescription: SG for the public server to allow HTTP and SSH request    
+      GroupName: PublicServer_sg
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref SSHLOCATION
+
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Project
+          Value: Web-PubSG
+
+  PrivateServerSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: SG for the private server to allow only SSH request from the public subnet of web-tier
+      GroupName: PrivateServer_sg
+      VpcId: !Ref myVPC
+      SecurityGroupIngress: !Ref SSHLOCATION-Priv
+      Tags:
+        - Key: Project
+          Value: Application-PrivSG
+
+  DbServerSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: SG for the database in the application-tier
+      GroupName: DbServerSG
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+
+  DbRDSSGingress:
+    Type: AWS::RDS::DBSecurityGroup 
+    Properties:
+      DBSecurityGroupIngress: 
+        CIDRIP: !Ref PrivateSub_CidrBlock
+        EC2SecurityGroupId: !Ref DbSeverSG
+
+
+
