@@ -1,13 +1,35 @@
 Description: >
   A three-tier architecture, with a web tier, application-tier, db-tier and a
   set-up of the, route-53 hosted zone to direct traffic to ec2 instance.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VpcCidrBlock
+          - PublicSubCidrBlock
+          - PrivateSubCidrBlock
+      - Label:
+          default: "Amazon EC2 Configuration"
+        Parameters:
+          - KeyName
+          - InstanceTypeServerPUB
+          - InstanceTypeServerPRIV
+          - SSHLOCAION
+          - SSHLOCAIONPriv
 Parameters:
   KeyName:
     Description: Name of the exiting EC2 keypair to enable SSH access to the instance
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
-  InstanceType:
-    Description: Webserver EC2 instance type
+  InstanceTypeServerPUB:
+    Description: Webserver EC2 instance type for the public web server
+    Type: String
+    Default: t2.micro
+    ConstraintDescription: must be a valid EC2 instance type 
+  InstanceTypeServerPRIV:
+    Description: Webserver EC2 instance type for the private webserver
     Type: String
     Default: t2.micro
     ConstraintDescription: must be a valid EC2 instance type
@@ -16,7 +38,7 @@ Parameters:
     Type: String
     Default: 0.0.0.0/0
     ConstraintDescription: must be valid IP CIDR range of the form x.x.x.x/x
-  SSHLOCATION-Priv:
+  SSHLOCATIONPriv:
     Description: The IP address range that can be used to SSH to the EC2 instances in the private subnet
     Type: String
     Default: 0.0.0.0/0
@@ -25,11 +47,11 @@ Parameters:
     Description: The cidr block for the VPC network
     Type: String
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x
-  PublicSub_CidrBlock:
+  PublicSubCidrBlock:
     Description: the cidr block for the public subnet
     Type: String
     ConstraintDescription: must be a valid IP CIDR block form the VPC network
-  PrivateSub_CidrBlock:
+  PrivateSubCidrBlock:
     Description: the cidr block for the private subnet
     Type: String
 Mappings:
@@ -224,13 +246,35 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
+          CidrIp: !Ref PrivateSub_CidrBlock
 
-  DbRDSSGingress:
-    Type: AWS::RDS::DBSecurityGroup 
+  #### Creation of EC2 instances in the network ####
+  EC2InstancePUB:
+    Type: 'AWS::EC2::Instance'
     Properties:
-      DBSecurityGroupIngress: 
-        CIDRIP: !Ref PrivateSub_CidrBlock
-        EC2SecurityGroupId: !Ref DbSeverSG
+      ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
+      InstanceType: !Ref InstanceTypeServer-PUB
+      KeyName: !Ref KeyName
+      SecurityGroupIds: !Ref PublicServerSG
+      SubnetId: !Ref myPubSubnet
+      Tags:
+        - Key: Project
+          Value: Web-PubServer
+
+  EC2InstancePRIV:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
+      InstanceType: !Ref InstanceTypeServer-PRIV
+      KeyName: !Ref KeyName
+      SecurityGroupIds: !Ref PrivateServerSG
+      SubnetId: !Ref myPrivSubnet
+      Tags:
+        - Key: Project
+          Value: Web-PrivServer
+
+  #### Database server creation  ####
+
 
 
 
