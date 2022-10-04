@@ -51,9 +51,49 @@ Parameters:
     Description: the cidr block for the public subnet
     Type: String
     ConstraintDescription: must be a valid IP CIDR block form the VPC network
-  PrivateSubCidrBlock:
-    Description: the cidr block for the private subnet
+  PrivateSubACidrBlock:
+    Description: the cidr block for the private subnet A
     Type: String
+  PrivateSubBCidrBlock:
+    Description: the cidr block for the private subnet B
+    Type: String
+  AllocatedStorageAPPS:
+    Description: Amount of storage in gibibytes to be initially allocated to the Db instance
+    Type: Number
+  DBInstanceClassAPPS:
+    Description: The compute and memeory capacity of the DB instance
+    Type: String
+    Default: db.t2.micro
+  DBInstanceIdentifierAPPS:
+    Description: A name for the DB Instance.
+    Type: String
+    Default: AppsRDSInstance
+  DBNameAPPS:
+    Description: The name of the database to create when the db instance is created.
+    Type: String
+    Default: DBAPPS
+  RDSEngine:
+    Description: The Database engine to use for this instance
+    Type: String
+    Default: mysql
+  RDSEngineVersion:
+    Description: The version number of the database engine to use
+    Type: Number
+  MasterUserName:
+    Description: The master user name for the DB Instance.
+    Type: String
+    Default: admin
+  MasterUserPassword:
+    Description: The password for the master user. 
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'  # for a mysql engine
+    AllowedPattern: "[a-zA-Z0-9!?]*"
+    ConstraintDescription: Can include and printable ASCII character except "/",""", or "@"
+  DBPort:
+    Description: The port number on which the database accepts connections
+    Type: Number
+    Default: '3306'
 Mappings:
   AWSRegionMapAMI:
     af-south-1:
@@ -143,17 +183,27 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: "us-east-1a"
-      CidrBlock: !Ref PublicSub_CidrBlock
+      CidrBlock: !Ref PublicSubCidrBlock
       MapPublicIpOnLaunch: 'true'
       Tags:
         - Key: Project
           Value: Project-PublicSubnet
 
-  myPrivSubnet:
+  myPrivSubnetA:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: "us-east-1b"
-      CidrBlock: !Ref PrivateSub_CidrBlock
+      CidrBlock: !Ref PrivateSubACidrBlock
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - key: Project
+          Value: Project-PrivateSubnet
+
+  myPrivSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: "us-east-1c"
+      CidrBlock: !Ref PrivateSubBCidrBlock
       MapPublicIpOnLaunch: 'false'
       Tags:
         - key: Project
@@ -231,7 +281,7 @@ Resources:
       GroupDescription: SG for the private server to allow only SSH request from the public subnet of web-tier
       GroupName: PrivateServer_sg
       VpcId: !Ref myVPC
-      SecurityGroupIngress: !Ref SSHLOCATION-Priv
+      SecurityGroupIngress: !Ref SSHLOCATIONPriv  
       Tags:
         - Key: Project
           Value: Application-PrivSG
@@ -246,14 +296,14 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          CidrIp: !Ref PrivateSub_CidrBlock
+          CidrIp: !Ref PrivateSubACidrBlock
 
   #### Creation of EC2 instances in the network ####
   EC2InstancePUB:
     Type: 'AWS::EC2::Instance'
     Properties:
       ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
-      InstanceType: !Ref InstanceTypeServer-PUB
+      InstanceType: !Ref InstanceTypeServerPUB
       KeyName: !Ref KeyName
       SecurityGroupIds: !Ref PublicServerSG
       SubnetId: !Ref myPubSubnet
@@ -265,15 +315,42 @@ Resources:
     Type: 'AWS::EC2::Instance'
     Properties:
       ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
-      InstanceType: !Ref InstanceTypeServer-PRIV
+      InstanceType: !Ref InstanceTypeServerPRIV
       KeyName: !Ref KeyName
       SecurityGroupIds: !Ref PrivateServerSG
-      SubnetId: !Ref myPrivSubnet
+      SubnetId: !Ref myPrivSubnetA
       Tags:
         - Key: Project
           Value: Web-PrivServer
 
   #### Database server creation  ####
+  RDSInstanceAPPs:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: !Ref AllocatedStorageAPPS
+      DBInstanceClass: !Ref DBInstanceClassAPPS
+      DBInstanceIdentifier: !Ref DBInstanceIdentifierAPPS
+      DBName: !Ref DBNameAPPS
+      VPCSecurityGroups: !Ref DbServerSG
+      DBSubnetGroupName: dbappsubnetgroup
+      DeleteAutomatedBackups: 'true'
+      Engine: !Ref RDSEngine
+      Ports: !Ref DBPort
+
+  DBSubnetGroupsVPC:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: the subnet group for myVPC
+      DBSubnetGroupName: dbappsubnetgroup
+      SubnetIds:
+        - !Ref myPrivSubnetA
+        - !Ref myPrivSubnetB
+
+
+
+
+
+
 
 
 
