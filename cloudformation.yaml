@@ -18,6 +18,19 @@ Metadata:
           - InstanceTypeServerPRIV
           - SSHLOCAION
           - SSHLOCAIONPriv
+      - Label:
+          default: "DB Configurations"
+        Parameters:
+          - AllocatedStorageAPPS
+          - DBInstanceClassAPPS
+          - DBInstanceIdentifiersAPPS
+          - DBNameAPPS
+          - RDSEngine
+          - RDSEngineVersion
+          - MasterUserName
+          - MasterUserPassword
+          - DBPort
+          - HostedZone
 Parameters:
   KeyName:
     Description: Name of the exiting EC2 keypair to enable SSH access to the instance
@@ -85,6 +98,7 @@ Parameters:
     Default: admin
   MasterUserPassword:
     Description: The password for the master user. 
+    NoEcho: 'true'
     Type: String
     MinLength: '8'
     MaxLength: '41'  # for a mysql engine
@@ -94,6 +108,10 @@ Parameters:
     Description: The port number on which the database accepts connections
     Type: Number
     Default: '3306'
+  HostedZone:
+    Description: The public hosted zone for the route-53
+    Type: AWS::Route53::HostedZone::Id
+
 Mappings:
   AWSRegionMapAMI:
     af-south-1:
@@ -183,6 +201,7 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: "us-east-1a"
+      VpcId: !Ref myVPC
       CidrBlock: !Ref PublicSubCidrBlock
       MapPublicIpOnLaunch: 'true'
       Tags:
@@ -193,6 +212,7 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: "us-east-1b"
+      VpcId: !Ref myVPC
       CidrBlock: !Ref PrivateSubACidrBlock
       MapPublicIpOnLaunch: 'false'
       Tags:
@@ -203,6 +223,7 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       AvailabilityZone: "us-east-1c"
+      VpcId: !Ref myVPC
       CidrBlock: !Ref PrivateSubBCidrBlock
       MapPublicIpOnLaunch: 'false'
       Tags:
@@ -326,6 +347,7 @@ Resources:
   #### Database server creation  ####
   RDSInstanceAPPs:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Retain    # Using the DeletionPolicy attribute to retain the DB after stack deletion.
     Properties:
       AllocatedStorage: !Ref AllocatedStorageAPPS
       DBInstanceClass: !Ref DBInstanceClassAPPS
@@ -345,6 +367,42 @@ Resources:
       SubnetIds:
         - !Ref myPrivSubnetA
         - !Ref myPrivSubnetB
+
+  #### Route53 creation ####
+  Route53RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Comment: DNS name for public instance.
+      Name: www.demoapplication.tk   ##########
+      ResourceRecords:
+        - !GetAtt EC2InstancePUB.PublicIp
+      TTL: 300
+      Type: A
+
+Outputs:
+  VPCId:
+    Description: The Id for the vpc network
+    Value: !Ref myVPC
+
+  EC2InstancePublicIp:
+    Description: The public Ip address of the public server
+    Value: !GetAtt EC2InstancePUB.PublicIp
+
+  RDSConnection:
+    Description: The endpoint address for the database
+    Value: !GetAtt RDSInstanceAPPs.Endpoint.Address
+
+  RDSPort:
+    Description: The port number on which the database accepts connections.
+    Value: !Ref DBPort
+
+
+
+
+
+
+
 
 
 
