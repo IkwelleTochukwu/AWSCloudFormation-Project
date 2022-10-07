@@ -216,7 +216,7 @@ Resources:
       CidrBlock: !Ref PrivateSubACidrBlock
       MapPublicIpOnLaunch: 'false'
       Tags:
-        - key: Project
+        - Key: Project
           Value: Project-PrivateSubnet
 
   myPrivSubnetB:
@@ -227,7 +227,7 @@ Resources:
       CidrBlock: !Ref PrivateSubBCidrBlock
       MapPublicIpOnLaunch: 'false'
       Tags:
-        - key: Project
+        - Key: Project
           Value: Project-PrivateSubnet
 
   #### Creation of resources to configure the public subnet ####
@@ -247,6 +247,7 @@ Resources:
   PublicRouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties:
+      VpcId: !Ref myVPC
       Tags:
         - Key: Project
           Value: Project-PubRtTb
@@ -268,6 +269,7 @@ Resources:
   PrivateRouteTable:
     Type: 'AWS::EC2::RouteTable'
     Properties:
+      VpcId: !Ref myVPC
       Tags:
         - Key: Project
           Value: Project-PrivRtTb
@@ -302,7 +304,11 @@ Resources:
       GroupDescription: SG for the private server to allow only SSH request from the public subnet of web-tier
       GroupName: PrivateServer_sg
       VpcId: !Ref myVPC
-      SecurityGroupIngress: !Ref SSHLOCATIONPriv  
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLOCATIONPriv  ### allow ssh connection from the public subnet only ###
       Tags:
         - Key: Project
           Value: Application-PrivSG
@@ -326,7 +332,8 @@ Resources:
       ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
       InstanceType: !Ref InstanceTypeServerPUB
       KeyName: !Ref KeyName
-      SecurityGroupIds: !Ref PublicServerSG
+      SecurityGroupIds: 
+        - !Ref PublicServerSG
       SubnetId: !Ref myPubSubnet
       Tags:
         - Key: Project
@@ -338,7 +345,8 @@ Resources:
       ImageId: !FindInMap [AWSRegionMapAMI, !Ref "AWS::Region", HVM64]
       InstanceType: !Ref InstanceTypeServerPRIV
       KeyName: !Ref KeyName
-      SecurityGroupIds: !Ref PrivateServerSG
+      SecurityGroupIds: 
+        - !Ref PrivateServerSG
       SubnetId: !Ref myPrivSubnetA
       Tags:
         - Key: Project
@@ -353,11 +361,14 @@ Resources:
       DBInstanceClass: !Ref DBInstanceClassAPPS
       DBInstanceIdentifier: !Ref DBInstanceIdentifierAPPS
       DBName: !Ref DBNameAPPS
-      VPCSecurityGroups: !Ref DbServerSG
+      VPCSecurityGroups: 
+        - !Ref DbServerSG
       DBSubnetGroupName: dbappsubnetgroup
       DeleteAutomatedBackups: 'true'
       Engine: !Ref RDSEngine
-      Ports: !Ref DBPort
+      MasterUserName: !Ref MasterUserName
+      MasterUserPassword: !Ref MasterUserPassword
+      Port: !Ref DBPort
 
   DBSubnetGroupsVPC:
     Type: AWS::RDS::DBSubnetGroup
