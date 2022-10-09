@@ -92,7 +92,7 @@ Parameters:
   RDSEngineVersion:
     Description: The version number of the database engine to use
     Type: Number
-  MasterUserName:
+  MasterUsername:
     Description: The master user name for the DB Instance.
     Type: String
     Default: admin
@@ -366,7 +366,7 @@ Resources:
       DBSubnetGroupName: dbappsubnetgroup
       DeleteAutomatedBackups: 'true'
       Engine: !Ref RDSEngine
-      MasterUserName: !Ref MasterUserName
+      MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterUserPassword
       Port: !Ref DBPort
 
